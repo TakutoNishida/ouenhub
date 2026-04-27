@@ -250,7 +250,11 @@ function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [donateTarget, setDonateTarget] = useState(null);
   const [activeRegion, setActiveRegion] = useState('all');
-  const [shareToast, setShareToast] = useState('');
+  const [toast, setToast] = useState('');
+  const showToast = useCallback((message) => {
+    setToast(message);
+    setTimeout(() => setToast(''), 2000);
+  }, []);
 
   const fav = useFavorites();
   const hist = useHistory();
@@ -286,11 +290,11 @@ function App() {
     // フォールバック: クリップボードにコピー
     try {
       await navigator.clipboard.writeText(url);
-      setShareToast('リンクをコピーしました！');
-      setTimeout(() => setShareToast(''), 2500);
+      setToast('リンクをコピーしました！');
+      setTimeout(() => setToast(''), 2500);
     } catch (e) {
-      setShareToast('コピーできませんでした');
-      setTimeout(() => setShareToast(''), 2500);
+      setToast('コピーできませんでした');
+      setTimeout(() => setToast(''), 2500);
     }
   };
 
@@ -353,9 +357,9 @@ function App() {
       </header>
 
       {/* Toast for share */}
-      {shareToast && (
-        <div className="fixed left-1/2 z-[100] px-4 py-2 rounded-full text-xs font-bold" style={{ top: '20px', transform: 'translateX(-50%)', background: '#3a2a1a', color: '#faf6ee', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-          {shareToast}
+      {toast && (
+        <div className="fixed left-1/2 z-[100] px-4 py-2 rounded-full text-xs font-bold" style={{ bottom: '24px', transform: 'translateX(-50%)', background: '#3a2a1a', color: '#faf6ee', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', whiteSpace: 'nowrap' }}>
+          {toast}
         </div>
       )}
 
@@ -389,7 +393,7 @@ function App() {
             const id = `hub:${link.url}`;
             const item = { id, type: 'hub', name: link.name, desc: link.desc, url: link.url, badge: link.badge };
             return (
-              <LinkCardWithFav key={i} href={link.url} badge={link.badge} badgeColor={link.color} title={link.name} desc={link.desc} isFav={fav.isFavorited(id)} onToggleFav={() => fav.toggle(item)} />
+              <LinkCardWithFav key={i} href={link.url} badge={link.badge} badgeColor={link.color} title={link.name} desc={link.desc} isFav={fav.isFavorited(id)} onToggleFav={() => fav.toggle(item)} onShowToast={showToast} />
             );
           })}
         </div>
@@ -455,7 +459,7 @@ function App() {
         </div>
       </footer>
 
-      {selected && <PrefectureModal pref={selected} onClose={() => setSelected(null)} onShowGuide={() => { setSelected(null); setShowGuide(true); }} fav={fav} />}
+      {selected && <PrefectureModal pref={selected} onClose={() => setSelected(null)} onShowGuide={() => { setSelected(null); setShowGuide(true); }} fav={fav} onShowToast={showToast} />}
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
       {showFavorites && <FavoritesModal favorites={fav.favorites} onRemove={fav.remove} onClearAll={fav.clearAll} onAddCustom={fav.addCustom} onDonate={openDonateDialog} onClose={() => setShowFavorites(false)} />}
@@ -465,34 +469,39 @@ function App() {
   );
 }
 
-function LinkCardWithFav({ href, badge, badgeColor, title, desc, isFav, onToggleFav, dark }) {
+function LinkCardWithFav({ href, badge, badgeColor, title, desc, isFav, onToggleFav, dark, onShowToast }) {
+  const handleToggleFav = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const wasFav = isFav;
+    onToggleFav();
+    if (onShowToast) {
+      onShowToast(wasFav ? 'お気に入りから削除しました' : 'お気に入りに保存しました ✓');
+    }
+  };
+
   return (
     <div className="relative">
       <a href={href} target="_blank" rel="noopener noreferrer" className="block active:scale-[0.98] transition-transform" style={{ padding: '16px 48px 16px 16px', borderRadius: '16px', background: dark ? dark.bg : 'white', color: dark ? 'white' : undefined, border: dark ? 'none' : '1px solid #e8dcc4', boxShadow: '0 1px 3px rgba(139, 58, 58, 0.04)' }}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            {badge && (
-              <div className="flex items-center gap-1.5 mb-1">
-                <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 6px', borderRadius: '2px', background: dark ? 'rgba(255,255,255,0.2)' : badgeColor, color: 'white' }}>{badge}</span>
-              </div>
-            )}
-            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px', lineHeight: 1.3, color: dark ? 'white' : '#3a2a1a' }}>{title}</div>
-            <div style={{ fontSize: '11px', lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.85)' : '#7a5a3a' }}>{desc}</div>
-          </div>
-          <div style={{ flexShrink: 0, marginTop: '2px', opacity: dark ? 0.85 : 1 }}>
-            <ExternalLink size={14} stroke={dark ? 'white' : '#8b3a3a'} />
-          </div>
+        <div className="flex-1 min-w-0">
+          {badge && (
+            <div className="flex items-center gap-1.5 mb-1">
+              <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 6px', borderRadius: '2px', background: dark ? 'rgba(255,255,255,0.2)' : badgeColor, color: 'white' }}>{badge}</span>
+            </div>
+          )}
+          <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px', lineHeight: 1.3, color: dark ? 'white' : '#3a2a1a' }}>{title}</div>
+          <div style={{ fontSize: '11px', lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.85)' : '#7a5a3a' }}>{desc}</div>
         </div>
       </a>
 
-      <button onClick={(e) => { e.stopPropagation(); onToggleFav(); }} className="absolute active:scale-90 transition-transform" style={{ top: '12px', right: '12px', width: '32px', height: '32px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isFav ? '#d4a373' : (dark ? 'rgba(255,255,255,0.15)' : 'rgba(139,58,58,0.06)') }} aria-label={isFav ? 'お気に入りから削除' : 'お気に入りに追加'}>
+      <button onClick={handleToggleFav} className="absolute active:scale-90 transition-transform" style={{ top: '12px', right: '12px', width: '32px', height: '32px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isFav ? '#d4a373' : (dark ? 'rgba(255,255,255,0.15)' : 'rgba(139,58,58,0.06)'), zIndex: 10 }} aria-label={isFav ? 'お気に入りから削除' : 'お気に入りに追加'}>
         <Bookmark size={13} fill={isFav ? '#3a2a1a' : 'none'} stroke={isFav ? '#3a2a1a' : (dark ? 'white' : '#8b3a3a')} />
       </button>
     </div>
   );
 }
 
-function PrefectureModal({ pref, onClose, onShowGuide, fav }) {
+function PrefectureModal({ pref, onClose, onShowGuide, fav, onShowToast }) {
   const kodomoTeUrl = `https://kodomo-te.com/wishlist/${pref.kodomoTe}/`;
   const amazonSearchUrl = `https://www.amazon.co.jp/s?k=${encodeURIComponent(pref.jp)}&i=specialty-aps&bbn=8459883051&rh=n%3A8459883051`;
   const amazonOuenUrl = 'https://www.amazon.co.jp/ouen';
@@ -535,7 +544,7 @@ function PrefectureModal({ pref, onClose, onShowGuide, fav }) {
 
         <div className="space-y-2.5">
           {prefLinks.map(link => (
-            <LinkCardWithFav key={link.id} href={link.url} badge={link.source} badgeColor="#5a7a4a" title={link.name} desc={link.desc} isFav={fav.isFavorited(link.id)} onToggleFav={() => fav.toggle(link)} dark={link.dark} />
+            <LinkCardWithFav key={link.id} href={link.url} badge={link.source} badgeColor="#5a7a4a" title={link.name} desc={link.desc} isFav={fav.isFavorited(link.id)} onToggleFav={() => fav.toggle(link)} dark={link.dark} onShowToast={onShowToast} />
           ))}
         </div>
 
