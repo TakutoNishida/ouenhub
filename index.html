@@ -389,13 +389,9 @@ function App() {
           ━━ MAIN RESOURCES ━━
         </div>
         <div className="space-y-2.5">
-          {HUB_LINKS.map((link, i) => {
-            const id = `hub:${link.url}`;
-            const item = { id, type: 'hub', name: link.name, desc: link.desc, url: link.url, badge: link.badge };
-            return (
-              <LinkCardWithFav key={i} href={link.url} badge={link.badge} badgeColor={link.color} title={link.name} desc={link.desc} isFav={fav.isFavorited(id)} onToggleFav={() => fav.toggle(item)} onShowToast={showToast} />
-            );
-          })}
+          {HUB_LINKS.map((link, i) => (
+            <LinkCardWithFav key={i} href={link.url} badge={link.badge} badgeColor={link.color} title={link.name} desc={link.desc} />
+          ))}
         </div>
       </section>
 
@@ -459,7 +455,7 @@ function App() {
         </div>
       </footer>
 
-      {selected && <PrefectureModal pref={selected} onClose={() => setSelected(null)} onShowGuide={() => { setSelected(null); setShowGuide(true); }} fav={fav} onShowToast={showToast} />}
+      {selected && <PrefectureModal pref={selected} onClose={() => setSelected(null)} onShowGuide={() => { setSelected(null); setShowGuide(true); }} />}
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
       {showFavorites && <FavoritesModal favorites={fav.favorites} onRemove={fav.remove} onClearAll={fav.clearAll} onAddCustom={fav.addCustom} onDonate={openDonateDialog} onClose={() => setShowFavorites(false)} />}
@@ -469,39 +465,23 @@ function App() {
   );
 }
 
-function LinkCardWithFav({ href, badge, badgeColor, title, desc, isFav, onToggleFav, dark, onShowToast }) {
-  const handleToggleFav = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const wasFav = isFav;
-    onToggleFav();
-    if (onShowToast) {
-      onShowToast(wasFav ? 'お気に入りから削除しました' : 'お気に入りに保存しました ✓');
-    }
-  };
-
+function LinkCardWithFav({ href, badge, badgeColor, title, desc, dark }) {
   return (
-    <div className="relative">
-      <a href={href} target="_blank" rel="noopener noreferrer" className="block active:scale-[0.98] transition-transform" style={{ padding: '16px 48px 16px 16px', borderRadius: '16px', background: dark ? dark.bg : 'white', color: dark ? 'white' : undefined, border: dark ? 'none' : '1px solid #e8dcc4', boxShadow: '0 1px 3px rgba(139, 58, 58, 0.04)' }}>
-        <div className="flex-1 min-w-0">
-          {badge && (
-            <div className="flex items-center gap-1.5 mb-1">
-              <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 6px', borderRadius: '2px', background: dark ? 'rgba(255,255,255,0.2)' : badgeColor, color: 'white' }}>{badge}</span>
-            </div>
-          )}
-          <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px', lineHeight: 1.3, color: dark ? 'white' : '#3a2a1a' }}>{title}</div>
-          <div style={{ fontSize: '11px', lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.85)' : '#7a5a3a' }}>{desc}</div>
-        </div>
-      </a>
-
-      <button onClick={handleToggleFav} className="absolute active:scale-90 transition-transform" style={{ top: '12px', right: '12px', width: '32px', height: '32px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isFav ? '#d4a373' : (dark ? 'rgba(255,255,255,0.15)' : 'rgba(139,58,58,0.06)'), zIndex: 10 }} aria-label={isFav ? 'お気に入りから削除' : 'お気に入りに追加'}>
-        <Bookmark size={13} fill={isFav ? '#3a2a1a' : 'none'} stroke={isFav ? '#3a2a1a' : (dark ? 'white' : '#8b3a3a')} />
-      </button>
-    </div>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="block active:scale-[0.98] transition-transform" style={{ padding: '16px', borderRadius: '16px', background: dark ? dark.bg : 'white', color: dark ? 'white' : undefined, border: dark ? 'none' : '1px solid #e8dcc4', boxShadow: '0 1px 3px rgba(139, 58, 58, 0.04)' }}>
+      <div className="flex-1 min-w-0">
+        {badge && (
+          <div className="flex items-center gap-1.5 mb-1">
+            <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 6px', borderRadius: '2px', background: dark ? 'rgba(255,255,255,0.2)' : badgeColor, color: 'white' }}>{badge}</span>
+          </div>
+        )}
+        <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px', lineHeight: 1.3, color: dark ? 'white' : '#3a2a1a' }}>{title}</div>
+        <div style={{ fontSize: '11px', lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.85)' : '#7a5a3a' }}>{desc}</div>
+      </div>
+    </a>
   );
 }
 
-function PrefectureModal({ pref, onClose, onShowGuide, fav, onShowToast }) {
+function PrefectureModal({ pref, onClose, onShowGuide }) {
   const kodomoTeUrl = `https://kodomo-te.com/wishlist/${pref.kodomoTe}/`;
   const amazonSearchUrl = `https://www.amazon.co.jp/s?k=${encodeURIComponent(pref.jp)}&i=specialty-aps&bbn=8459883051&rh=n%3A8459883051`;
   const amazonOuenUrl = 'https://www.amazon.co.jp/ouen';
@@ -538,13 +518,10 @@ function PrefectureModal({ pref, onClose, onShowGuide, fav, onShowToast }) {
         <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '10px', color: '#8b3a3a' }}>
           ━ 確認できる主なリスト ━
         </div>
-        <div style={{ fontSize: '10px', marginBottom: '12px', lineHeight: 1.6, color: '#7a5a3a' }}>
-          気に入ったリンクは <Bookmark size={10} style={{ display: 'inline-flex', verticalAlign: '-1px' }} /> ボタンで保存できます
-        </div>
 
         <div className="space-y-2.5">
           {prefLinks.map(link => (
-            <LinkCardWithFav key={link.id} href={link.url} badge={link.source} badgeColor="#5a7a4a" title={link.name} desc={link.desc} isFav={fav.isFavorited(link.id)} onToggleFav={() => fav.toggle(link)} dark={link.dark} onShowToast={onShowToast} />
+            <LinkCardWithFav key={link.id} href={link.url} badge={link.source} badgeColor="#5a7a4a" title={link.name} desc={link.desc} dark={link.dark} />
           ))}
         </div>
 
@@ -636,7 +613,7 @@ function FavoritesModal({ favorites, onRemove, onClearAll, onAddCustom, onDonate
             <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.3 }}>📑</div>
             <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '8px', color: '#5a3a2a' }}>まだお気に入りがありません</div>
             <div style={{ fontSize: '11px', lineHeight: 1.6, padding: '0 24px', color: '#7a5a3a' }}>
-              各リンクの<Bookmark size={11} style={{ display: 'inline-flex', margin: '0 4px', verticalAlign: '-1px' }} />ボタンから保存するか、上の「+」から個別リストを追加できます。
+              上の「+ 気に入った個別リストを追加」から、応援先の名前とAmazonほしい物リストのURLを登録できます。
             </div>
           </div>
         ) : (
@@ -1036,8 +1013,8 @@ function InfoModal({ onClose }) {
     <ModalShell onClose={onClose}>
       <div className="flex justify-between items-center px-5 pt-5 pb-3" style={{ borderBottom: '1px solid #e8dcc4' }}>
         <div style={{ fontWeight: 700, fontSize: '14px', color: '#3a2a1a' }}>このアプリの使い方</div>
-        <button onClick={onClose} style={{ padding: '4px' }}>
-          <X size={16} stroke="#5a3a2a" />
+        <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ padding: '8px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ pointerEvents: 'none' }}><X size={16} stroke="#5a3a2a" /></span>
         </button>
       </div>
 
@@ -1049,7 +1026,7 @@ function InfoModal({ onClose }) {
 
         <div>
           <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px', color: '#8b3a3a' }}>📑 お気に入り</div>
-          <p>気になった応援先のリンクは、各カードの<Bookmark size={11} style={{ display: 'inline-flex', margin: '0 4px', verticalAlign: '-1px' }} />ボタンで保存できます。「+ 個別リストを追加」で、Amazonで見つけた具体的な応援先のURLも保存できます。次回開いた時もそのまま残ります。</p>
+          <p>気になった応援先のリンクは、お気に入りモーダルの「+ 個別リストを追加」から、応援先の名前とAmazonほしい物リストのURLを登録できます。次回開いた時もそのまま残ります。</p>
         </div>
 
         <div>
@@ -1096,8 +1073,8 @@ function ModalShell({ children, onClose, zIndex = 50 }) {
 
 function CloseButton({ onClose }) {
   return (
-    <button onClick={onClose} className="absolute" style={{ top: '12px', right: '12px', padding: '6px', borderRadius: '9999px', background: 'rgba(250, 246, 238, 0.2)' }}>
-      <X size={14} />
+    <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute" style={{ top: '12px', right: '12px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', background: 'rgba(250, 246, 238, 0.2)', border: 'none', cursor: 'pointer', zIndex: 20 }}>
+      <span style={{ pointerEvents: 'none' }}><X size={14} /></span>
     </button>
   );
 }
