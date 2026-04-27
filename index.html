@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>みんなの応援ハブ</title>
+<meta name="description" content="全国の児童養護施設・動物保護団体・被災地支援などのAmazonほしい物リストへのハブ。" />
+
+<!-- Open Graph (LINEやTwitterで共有された時の見た目) -->
+<meta property="og:title" content="みんなの応援ハブ" />
+<meta property="og:description" content="全国の応援先のほしい物リストをまとめました" />
+<meta property="og:type" content="website" />
+
+<!-- Tailwind (CDN) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- React + ReactDOM (CDN) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- Babel Standalone (ブラウザ内でJSXをコンパイル) -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- Lucide Icons (アイコン用) -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+<style>
+  html, body, #root {
+    margin: 0;
+    padding: 0;
+    background: #faf6ee;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+    color: #3a2a1a;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* スクロールバー非表示用のクラス（インライン style では無理なので定義） */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+</style>
+</head>
+
+<body>
+<div id="root">
+  <!-- 初回ロード中の表示 -->
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;">
+    <div style="font-size: 32px;">🌸</div>
+    <div style="font-size: 12px; color: #7a5a3a;">読み込み中...</div>
+  </div>
+</div>
+
+<script type="text/babel" data-type="module">
+const { useState, useMemo, useEffect, useCallback, createElement: h } = React;
+
+// Lucideアイコンを React コンポーネント化するヘルパー
+function makeIcon(name) {
+  return function IconComponent(props) {
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+      if (ref.current && window.lucide) {
+        ref.current.innerHTML = '';
+        const el = document.createElement('i');
+        el.setAttribute('data-lucide', name);
+        const size = props.size || 16;
+        el.setAttribute('width', size);
+        el.setAttribute('height', size);
+        if (props.fill) el.setAttribute('fill', props.fill);
+        if (props.stroke) el.setAttribute('stroke', props.stroke);
+        ref.current.appendChild(el);
+        window.lucide.createIcons();
+      }
+    }, [props.size, props.fill, props.stroke]);
+    return h('span', {
+      ref,
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        verticalAlign: props.style?.verticalAlign,
+        ...props.style,
+      },
+      className: props.className,
+    });
+  };
+}
+
+const Search = makeIcon('search');
+const MapPin = makeIcon('map-pin');
+const ExternalLink = makeIcon('external-link');
+const X = makeIcon('x');
+const Heart = makeIcon('heart');
+const ChevronRight = makeIcon('chevron-right');
+const Info = makeIcon('info');
+const MessageCircle = makeIcon('message-circle');
+const Sparkles = makeIcon('sparkles');
+const LayoutGrid = makeIcon('layout-grid');
+const List = makeIcon('list');
+const Bookmark = makeIcon('bookmark');
+const Trash2 = makeIcon('trash-2');
+const Gift = makeIcon('gift');
+const Plus = makeIcon('plus');
+const Check = makeIcon('check');
+const History = makeIcon('history');
+const Share2 = makeIcon('share-2');
+
+const PREFECTURES = [
+  { jp: '北海道', en: 'hokkaido', region: '北海道・東北', kodomoTe: 'hokkaido' },
+  { jp: '青森県', en: 'aomori', region: '北海道・東北', kodomoTe: 'aomori' },
+  { jp: '岩手県', en: 'iwate', region: '北海道・東北', kodomoTe: 'iwate' },
+  { jp: '宮城県', en: 'miyagi', region: '北海道・東北', kodomoTe: 'miyagi' },
+  { jp: '秋田県', en: 'akita', region: '北海道・東北', kodomoTe: 'akita' },
+  { jp: '山形県', en: 'yamagata', region: '北海道・東北', kodomoTe: 'yamagata' },
+  { jp: '福島県', en: 'fukushima', region: '北海道・東北', kodomoTe: 'fukushima' },
+  { jp: '茨城県', en: 'ibaraki', region: '関東', kodomoTe: 'ibaraki' },
+  { jp: '栃木県', en: 'tochigi', region: '関東', kodomoTe: 'tochigi' },
+  { jp: '群馬県', en: 'gunma', region: '関東', kodomoTe: 'gunma' },
+  { jp: '埼玉県', en: 'saitama', region: '関東', kodomoTe: 'saitama' },
+  { jp: '千葉県', en: 'chiba', region: '関東', kodomoTe: 'chiba' },
+  { jp: '東京都', en: 'tokyo', region: '関東', kodomoTe: 'tokyo', popular: true },
+  { jp: '神奈川県', en: 'kanagawa', region: '関東', kodomoTe: 'kanagawa', popular: true },
+  { jp: '新潟県', en: 'niigata', region: '中部', kodomoTe: 'niigata' },
+  { jp: '富山県', en: 'toyama', region: '中部', kodomoTe: 'toyama' },
+  { jp: '石川県', en: 'ishikawa', region: '中部', kodomoTe: 'ishikawa' },
+  { jp: '福井県', en: 'fukui', region: '中部', kodomoTe: 'fukui' },
+  { jp: '山梨県', en: 'yamanashi', region: '中部', kodomoTe: 'yamanashi' },
+  { jp: '長野県', en: 'nagano', region: '中部', kodomoTe: 'nagano' },
+  { jp: '岐阜県', en: 'gifu', region: '中部', kodomoTe: 'gifu' },
+  { jp: '静岡県', en: 'shizuoka', region: '中部', kodomoTe: 'shizuoka' },
+  { jp: '愛知県', en: 'aichi', region: '中部', kodomoTe: 'aichi', popular: true },
+  { jp: '三重県', en: 'mie', region: '関西', kodomoTe: 'mie' },
+  { jp: '滋賀県', en: 'shiga', region: '関西', kodomoTe: 'shiga' },
+  { jp: '京都府', en: 'kyoto', region: '関西', kodomoTe: 'kyoto' },
+  { jp: '大阪府', en: 'osaka', region: '関西', kodomoTe: 'osaka', popular: true },
+  { jp: '兵庫県', en: 'hyogo', region: '関西', kodomoTe: 'hyogo' },
+  { jp: '奈良県', en: 'nara', region: '関西', kodomoTe: 'nara' },
+  { jp: '和歌山県', en: 'wakayama', region: '関西', kodomoTe: 'wakayama' },
+  { jp: '鳥取県', en: 'tottori', region: '中国・四国', kodomoTe: 'tottori' },
+  { jp: '島根県', en: 'shimane', region: '中国・四国', kodomoTe: 'shimane' },
+  { jp: '岡山県', en: 'okayama', region: '中国・四国', kodomoTe: 'okayama' },
+  { jp: '広島県', en: 'hiroshima', region: '中国・四国', kodomoTe: 'hiroshima' },
+  { jp: '山口県', en: 'yamaguchi', region: '中国・四国', kodomoTe: 'yamaguchi' },
+  { jp: '徳島県', en: 'tokushima', region: '中国・四国', kodomoTe: 'tokushima' },
+  { jp: '香川県', en: 'kagawa', region: '中国・四国', kodomoTe: 'kagawa' },
+  { jp: '愛媛県', en: 'ehime', region: '中国・四国', kodomoTe: 'ehime' },
+  { jp: '高知県', en: 'kochi', region: '中国・四国', kodomoTe: 'kochi' },
+  { jp: '福岡県', en: 'fukuoka', region: '九州・沖縄', kodomoTe: 'fukuoka' },
+  { jp: '佐賀県', en: 'saga', region: '九州・沖縄', kodomoTe: 'saga' },
+  { jp: '長崎県', en: 'nagasaki', region: '九州・沖縄', kodomoTe: 'nagasaki' },
+  { jp: '熊本県', en: 'kumamoto', region: '九州・沖縄', kodomoTe: 'kumamoto' },
+  { jp: '大分県', en: 'oita', region: '九州・沖縄', kodomoTe: 'oita' },
+  { jp: '宮崎県', en: 'miyazaki', region: '九州・沖縄', kodomoTe: 'miyazaki' },
+  { jp: '鹿児島県', en: 'kagoshima', region: '九州・沖縄', kodomoTe: 'kagoshima' },
+  { jp: '沖縄県', en: 'okinawa', region: '九州・沖縄', kodomoTe: 'okinawa' },
+];
+
+const REGIONS = ['北海道・東北', '関東', '中部', '関西', '中国・四国', '九州・沖縄'];
+
+const HUB_LINKS = [
+  { name: 'Amazon「みんなで応援」プログラム', desc: '児童養護施設・動物保護団体・被災地支援など、登録団体すべての公式プログラム', url: 'https://www.amazon.co.jp/ouen', badge: '公式', color: '#8b3a3a' },
+  { name: '乳児院支援プログラム', desc: '全国の乳児院のほしい物リスト一覧（Amazon公式）', url: 'https://www.amazon.co.jp/b?node=23205872051', badge: '公式', color: '#8b3a3a' },
+  { name: 'こどものて（kodomo-te.com）', desc: '都道府県別に児童養護施設・子ども支援団体のほしい物リストをまとめた個人運営サイト', url: 'https://kodomo-te.com/category/wishlist/', badge: 'まとめ', color: '#5a7a4a' },
+  { name: 'NPO法人ブリッジフォースマイル', desc: '児童養護施設の子どもたちの自立支援に取り組む団体', url: 'https://www.b4s.jp/', badge: 'NPO', color: '#7a5a8a' },
+];
+
+const FAV_KEY = 'ouenhub.favorites.v1';
+const HISTORY_KEY = 'ouenhub.history.v1';
+
+// localStorage を使った永続化フック
+function useLocalStorage(key, initial) {
+  const [value, setValue] = useState(() => {
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return initial;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.error('localStorage save failed', e);
+    }
+  }, [key, value]);
+
+  return [value, setValue];
+}
+
+function useFavorites() {
+  const [favorites, setFavorites] = useLocalStorage(FAV_KEY, []);
+
+  const isFavorited = useCallback((id) => favorites.some(f => f.id === id), [favorites]);
+
+  const toggle = useCallback((item) => {
+    setFavorites(prev => {
+      const exists = prev.some(f => f.id === item.id);
+      return exists ? prev.filter(f => f.id !== item.id) : [{ ...item, savedAt: Date.now() }, ...prev];
+    });
+  }, [setFavorites]);
+
+  const remove = useCallback((id) => setFavorites(prev => prev.filter(f => f.id !== id)), [setFavorites]);
+  const clearAll = useCallback(() => setFavorites([]), [setFavorites]);
+
+  const addCustom = useCallback((customItem) => {
+    const item = {
+      id: `custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+      type: 'custom',
+      name: customItem.name,
+      url: customItem.url,
+      source: '個別リスト',
+      savedAt: Date.now(),
+    };
+    setFavorites(prev => [item, ...prev]);
+    return item;
+  }, [setFavorites]);
+
+  return { favorites, isFavorited, toggle, remove, clearAll, addCustom };
+}
+
+function useHistory() {
+  const [history, setHistory] = useLocalStorage(HISTORY_KEY, []);
+
+  const add = useCallback((entry) => {
+    const item = {
+      id: `donation:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+      recipientName: entry.recipientName,
+      itemName: entry.itemName || '',
+      amount: entry.amount || 0,
+      memo: entry.memo || '',
+      url: entry.url || '',
+      date: entry.date || Date.now(),
+    };
+    setHistory(prev => [item, ...prev]);
+    return item;
+  }, [setHistory]);
+
+  const remove = useCallback((id) => setHistory(prev => prev.filter(h => h.id !== id)), [setHistory]);
+  const clearAll = useCallback(() => setHistory([]), [setHistory]);
+
+  const totalAmount = useMemo(() => history.reduce((s, h) => s + (Number(h.amount) || 0), 0), [history]);
+
+  return { history, add, remove, clearAll, totalAmount };
+}
+
+function App() {
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [donateTarget, setDonateTarget] = useState(null);
+  const [activeRegion, setActiveRegion] = useState('all');
+  const [shareToast, setShareToast] = useState('');
+
+  const fav = useFavorites();
+  const hist = useHistory();
+
+  const filtered = useMemo(() => PREFECTURES.filter(p => {
+    if (activeRegion !== 'all' && p.region !== activeRegion) return false;
+    if (search && !p.jp.includes(search) && !p.en.includes(search.toLowerCase())) return false;
+    return true;
+  }), [search, activeRegion]);
+
+  const grouped = useMemo(() => {
+    const g = {};
+    filtered.forEach(p => { if (!g[p.region]) g[p.region] = []; g[p.region].push(p); });
+    return g;
+  }, [filtered]);
+
+  const openDonateDialog = (item) => setDonateTarget({ recipientName: item.name, url: item.url || '' });
+
+  // 共有機能
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = 'みんなの応援ハブ';
+    const text = '全国の児童養護施設・動物保護団体などのほしい物リストをまとめました';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    // フォールバック: クリップボードにコピー
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareToast('リンクをコピーしました！');
+      setTimeout(() => setShareToast(''), 2500);
+    } catch (e) {
+      setShareToast('コピーできませんでした');
+      setTimeout(() => setShareToast(''), 2500);
+    }
+  };
+
+  return (
+    <div className="min-h-screen pb-20" style={{ background: '#faf6ee', fontFamily: '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif', color: '#3a2a1a' }}>
+      <div className="fixed inset-0 pointer-events-none" style={{ opacity: 0.03, backgroundImage: 'radial-gradient(circle, #8b3a3a 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
+      <header className="relative" style={{ background: 'linear-gradient(180deg, #8b3a3a 0%, #6b2a2a 100%)' }}>
+        <div className="absolute inset-0" style={{ opacity: 0.1, backgroundImage: 'radial-gradient(circle at 15% 25%, #faf6ee 2px, transparent 2px), radial-gradient(circle at 85% 75%, #faf6ee 2px, transparent 2px), radial-gradient(circle at 50% 50%, #faf6ee 1px, transparent 1px)', backgroundSize: '80px 80px, 60px 60px, 40px 40px' }} />
+
+        <div className="relative px-5 pt-8 pb-10" style={{ color: '#faf6ee' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(250, 246, 238, 0.15)', border: '1px solid rgba(250, 246, 238, 0.3)' }}>
+                <Heart size={16} fill="#faf6ee" stroke="#faf6ee" />
+              </div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.3em', opacity: 0.7 }}>SUPPORT TOGETHER</div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={handleShare} className="relative w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(250, 246, 238, 0.15)', border: '1px solid rgba(250, 246, 238, 0.3)' }} aria-label="共有">
+                <Share2 size={14} stroke="#faf6ee" />
+              </button>
+              <button onClick={() => setShowHistory(true)} className="relative w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(250, 246, 238, 0.15)', border: '1px solid rgba(250, 246, 238, 0.3)' }} aria-label="履歴">
+                <History size={14} stroke="#faf6ee" />
+                {hist.history.length > 0 && (
+                  <div className="absolute" style={{ top: '-4px', right: '-4px', minWidth: '18px', height: '18px', padding: '0 4px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, background: '#5a7a4a', color: 'white', border: '1.5px solid #6b2a2a' }}>
+                    {hist.history.length}
+                  </div>
+                )}
+              </button>
+              <button onClick={() => setShowFavorites(true)} className="relative w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(250, 246, 238, 0.15)', border: '1px solid rgba(250, 246, 238, 0.3)' }} aria-label="お気に入り">
+                <Bookmark size={14} fill={fav.favorites.length > 0 ? '#faf6ee' : 'none'} stroke="#faf6ee" />
+                {fav.favorites.length > 0 && (
+                  <div className="absolute" style={{ top: '-4px', right: '-4px', minWidth: '18px', height: '18px', padding: '0 4px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, background: '#d4a373', color: '#3a2a1a', border: '1.5px solid #6b2a2a' }}>
+                    {fav.favorites.length}
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '6px', lineHeight: 1.2, letterSpacing: '0.04em' }}>
+            みんなの<br/>応援ハブ
+          </h1>
+          <p style={{ fontSize: '12px', lineHeight: 1.6, opacity: 0.8, marginBottom: '20px' }}>
+            児童養護施設・動物保護団体・被災地など、<br/>
+            全国の応援先のほしい物リストをまとめました
+          </p>
+
+          <button onClick={() => setShowInfo(true)} className="inline-flex items-center gap-1.5" style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '9999px', background: 'rgba(250, 246, 238, 0.12)', border: '1px solid rgba(250, 246, 238, 0.2)', color: '#faf6ee' }}>
+            <Info size={11} />
+            このアプリの使い方
+          </button>
+        </div>
+
+        <svg viewBox="0 0 380 30" className="block w-full" style={{ marginBottom: '-1px' }}>
+          <path d="M0,30 L0,15 Q95,0 190,15 T380,15 L380,30 Z" fill="#faf6ee" />
+        </svg>
+      </header>
+
+      {/* Toast for share */}
+      {shareToast && (
+        <div className="fixed left-1/2 z-[100] px-4 py-2 rounded-full text-xs font-bold" style={{ top: '20px', transform: 'translateX(-50%)', background: '#3a2a1a', color: '#faf6ee', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+          {shareToast}
+        </div>
+      )}
+
+      <section className="px-4 -mt-2 relative z-10 mb-6">
+        <button onClick={() => setShowGuide(true)} className="block w-full text-left p-4 rounded-2xl active:scale-[0.98] transition-transform relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #d4a373 0%, #c08a5c 100%)', color: '#faf6ee' }}>
+          <div className="absolute" style={{ right: '-16px', top: '-16px', opacity: 0.15 }}>
+            <Sparkles size={80} />
+          </div>
+          <div className="relative">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <MessageCircle size={12} fill="#faf6ee" stroke="#faf6ee" />
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', fontWeight: 700, opacity: 0.9 }}>寄付の前に読みたい</div>
+            </div>
+            <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '4px', lineHeight: 1.2 }}>
+              応援先からのコメントを<br/>見つけて贈ろう
+            </div>
+            <div style={{ fontSize: '11px', opacity: 0.9, lineHeight: 1.6 }}>
+              リスト表示に切り替えると応援先からの<br/>
+              一言メッセージが見えます →
+            </div>
+          </div>
+        </button>
+      </section>
+
+      <section className="px-4">
+        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '12px', color: '#8b3a3a' }}>
+          ━━ MAIN RESOURCES ━━
+        </div>
+        <div className="space-y-2.5">
+          {HUB_LINKS.map((link, i) => {
+            const id = `hub:${link.url}`;
+            const item = { id, type: 'hub', name: link.name, desc: link.desc, url: link.url, badge: link.badge };
+            return (
+              <LinkCardWithFav key={i} href={link.url} badge={link.badge} badgeColor={link.color} title={link.name} desc={link.desc} isFav={fav.isFavorited(id)} onToggleFav={() => fav.toggle(item)} />
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="px-4 mt-8">
+        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '12px', color: '#8b3a3a' }}>
+          ━━ BY PREFECTURE ━━
+        </div>
+        <div className="relative mb-3">
+          <div className="absolute" style={{ left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#8b3a3a' }}>
+            <Search size={14} />
+          </div>
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="都道府県を検索（例:東京、osaka）" className="w-full" style={{ paddingLeft: '36px', paddingRight: '16px', paddingTop: '10px', paddingBottom: '10px', fontSize: '12px', borderRadius: '9999px', outline: 'none', background: 'white', border: '1px solid #e8dcc4', fontFamily: 'inherit', color: '#3a2a1a' }} />
+        </div>
+
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
+          {[{ id: 'all', label: 'すべて' }, ...REGIONS.map(r => ({ id: r, label: r }))].map(r => (
+            <button key={r.id} onClick={() => setActiveRegion(r.id)} style={{ padding: '6px 12px', borderRadius: '9999px', fontSize: '10px', whiteSpace: 'nowrap', background: activeRegion === r.id ? '#8b3a3a' : 'white', color: activeRegion === r.id ? 'white' : '#5a3a2a', border: '1px solid #e8dcc4', fontWeight: activeRegion === r.id ? 700 : 500 }}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="px-4 mt-4">
+        {Object.keys(grouped).length === 0 ? (
+          <div className="text-center py-16">
+            <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.3 }}>🍃</div>
+            <div style={{ fontSize: '12px', color: '#7a5a3a' }}>該当する都道府県が見つかりません</div>
+          </div>
+        ) : (
+          REGIONS.filter(r => grouped[r]).map(region => (
+            <div key={region} className="mb-6">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="flex-1" style={{ height: '1px', background: '#e8dcc4' }} />
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', color: '#8b3a3a' }}>{region}</div>
+                <div className="flex-1" style={{ height: '1px', background: '#e8dcc4' }} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {grouped[region].map(pref => (
+                  <button key={pref.en} onClick={() => setSelected(pref)} className="relative p-3 rounded-xl text-left active:scale-[0.97] transition-transform" style={{ background: 'white', border: '1px solid #e8dcc4' }}>
+                    {pref.popular && (
+                      <div className="absolute" style={{ top: '6px', right: '6px', width: '6px', height: '6px', borderRadius: '9999px', background: '#d4a373' }} />
+                    )}
+                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '2px', color: '#3a2a1a' }}>{pref.jp}</div>
+                    <div className="flex items-center justify-between">
+                      <div style={{ fontSize: '9px', letterSpacing: '0.1em', opacity: 0.6, color: '#5a3a2a' }}>{pref.en.toUpperCase()}</div>
+                      <ChevronRight size={12} stroke="#8b3a3a" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </section>
+
+      <footer className="mt-8 px-5 py-6 text-center">
+        <div style={{ fontSize: '10px', lineHeight: 1.6, color: '#a08870' }}>
+          掲載情報は外部サイトへのリンクをまとめたものです<br/>
+          最新の情報は各リンク先でご確認ください
+        </div>
+      </footer>
+
+      {selected && <PrefectureModal pref={selected} onClose={() => setSelected(null)} onShowGuide={() => { setSelected(null); setShowGuide(true); }} fav={fav} />}
+      {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
+      {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
+      {showFavorites && <FavoritesModal favorites={fav.favorites} onRemove={fav.remove} onClearAll={fav.clearAll} onAddCustom={fav.addCustom} onDonate={openDonateDialog} onClose={() => setShowFavorites(false)} />}
+      {showHistory && <HistoryModal history={hist.history} totalAmount={hist.totalAmount} onRemove={hist.remove} onClearAll={hist.clearAll} onClose={() => setShowHistory(false)} />}
+      {donateTarget && <DonateRecordModal target={donateTarget} onSave={(entry) => { hist.add(entry); setDonateTarget(null); }} onClose={() => setDonateTarget(null)} />}
+    </div>
+  );
+}
+
+function LinkCardWithFav({ href, badge, badgeColor, title, desc, isFav, onToggleFav, dark }) {
+  return (
+    <div className="relative">
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block active:scale-[0.98] transition-transform" style={{ padding: '16px 48px 16px 16px', borderRadius: '16px', background: dark ? dark.bg : 'white', color: dark ? 'white' : undefined, border: dark ? 'none' : '1px solid #e8dcc4', boxShadow: '0 1px 3px rgba(139, 58, 58, 0.04)' }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {badge && (
+              <div className="flex items-center gap-1.5 mb-1">
+                <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 6px', borderRadius: '2px', background: dark ? 'rgba(255,255,255,0.2)' : badgeColor, color: 'white' }}>{badge}</span>
+              </div>
+            )}
+            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px', lineHeight: 1.3, color: dark ? 'white' : '#3a2a1a' }}>{title}</div>
+            <div style={{ fontSize: '11px', lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.85)' : '#7a5a3a' }}>{desc}</div>
+          </div>
+          <div style={{ flexShrink: 0, marginTop: '2px', opacity: dark ? 0.85 : 1 }}>
+            <ExternalLink size={14} stroke={dark ? 'white' : '#8b3a3a'} />
+          </div>
+        </div>
+      </a>
+
+      <button onClick={(e) => { e.stopPropagation(); onToggleFav(); }} className="absolute active:scale-90 transition-transform" style={{ top: '12px', right: '12px', width: '32px', height: '32px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isFav ? '#d4a373' : (dark ? 'rgba(255,255,255,0.15)' : 'rgba(139,58,58,0.06)') }} aria-label={isFav ? 'お気に入りから削除' : 'お気に入りに追加'}>
+        <Bookmark size={13} fill={isFav ? '#3a2a1a' : 'none'} stroke={isFav ? '#3a2a1a' : (dark ? 'white' : '#8b3a3a')} />
+      </button>
+    </div>
+  );
+}
+
+function PrefectureModal({ pref, onClose, onShowGuide, fav }) {
+  const kodomoTeUrl = `https://kodomo-te.com/wishlist/${pref.kodomoTe}/`;
+  const amazonSearchUrl = `https://www.amazon.co.jp/s?k=${encodeURIComponent(pref.jp)}&i=specialty-aps&bbn=8459883051&rh=n%3A8459883051`;
+  const amazonOuenUrl = 'https://www.amazon.co.jp/ouen';
+  const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(pref.jp + ' Amazon ほしい物リスト 寄付')}`;
+
+  const prefLinks = [
+    { id: `pref:${pref.en}:kodomote`, type: 'pref', pref: pref.jp, source: 'こどものて', name: `${pref.jp}の児童養護施設一覧`, desc: '児童養護施設・子ども支援団体に特化した都道府県別まとめ', url: kodomoTeUrl, dark: { bg: 'linear-gradient(135deg, #5a7a4a 0%, #4a6a3a 100%)' } },
+    { id: `pref:${pref.en}:amazon-search`, type: 'pref', pref: pref.jp, source: 'Amazon みんなで応援', name: `${pref.jp}の応援先を検索`, desc: '児童養護・動物保護・被災地支援など全ジャンルから検索', url: amazonSearchUrl, dark: { bg: 'linear-gradient(135deg, #8b3a3a 0%, #6b2a2a 100%)' } },
+    { id: `pref:${pref.en}:amazon-top`, type: 'pref', pref: pref.jp, source: 'Amazon 公式', name: 'みんなで応援プログラム', desc: '全カテゴリ・全国の登録応援先トップページ', url: amazonOuenUrl },
+    { id: `pref:${pref.en}:google`, type: 'pref', pref: pref.jp, source: 'Google検索', name: `${pref.jp}の関連情報`, desc: '応援先の公式サイトや個別のほしい物リストを横断検索', url: googleSearchUrl },
+  ];
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="relative px-5 pt-6 pb-5" style={{ background: 'linear-gradient(135deg, #8b3a3a 0%, #6b2a2a 100%)', color: '#faf6ee' }}>
+        <CloseButton onClose={onClose} />
+        <div className="flex items-center gap-1.5 mb-2" style={{ opacity: 0.8 }}>
+          <MapPin size={11} />
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em' }}>{pref.region}</div>
+        </div>
+        <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '2px' }}>{pref.jp}</h2>
+        <div style={{ fontSize: '10px', letterSpacing: '0.2em', opacity: 0.6 }}>{pref.en.toUpperCase()}</div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        <button onClick={onShowGuide} className="w-full mb-3 p-3 rounded-xl flex items-center justify-between text-left" style={{ background: '#fbe8d3', border: '1px solid #e8c993' }}>
+          <div className="flex items-center gap-2">
+            <MessageCircle size={14} stroke="#8b6534" />
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#5a3a2a' }}>リストを開く前に：選び方のコツ</div>
+          </div>
+          <ChevronRight size={12} stroke="#8b6534" />
+        </button>
+
+        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '10px', color: '#8b3a3a' }}>
+          ━ 確認できる主なリスト ━
+        </div>
+        <div style={{ fontSize: '10px', marginBottom: '12px', lineHeight: 1.6, color: '#7a5a3a' }}>
+          気に入ったリンクは <Bookmark size={10} style={{ display: 'inline-flex', verticalAlign: '-1px' }} /> ボタンで保存できます
+        </div>
+
+        <div className="space-y-2.5">
+          {prefLinks.map(link => (
+            <LinkCardWithFav key={link.id} href={link.url} badge={link.source} badgeColor="#5a7a4a" title={link.name} desc={link.desc} isFav={fav.isFavorited(link.id)} onToggleFav={() => fav.toggle(link)} dark={link.dark} />
+          ))}
+        </div>
+
+        <div className="mt-5 p-3.5 rounded-xl" style={{ fontSize: '11px', lineHeight: 1.6, background: '#fbe8d3', color: '#5a3a2a' }}>
+          <div style={{ fontWeight: 700, marginBottom: '4px' }}>🌸 寄付の前に</div>
+          ほしい物リストは時期によって内容や受付状況が変わります。匿名で送る場合は寄付金控除の対象外となる点もご注意ください。
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+function FavoritesModal({ favorites, onRemove, onClearAll, onAddCustom, onDonate, onClose }) {
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formUrl, setFormUrl] = useState('');
+  const [formError, setFormError] = useState('');
+
+  const grouped = useMemo(() => ({
+    customs: favorites.filter(f => f.type === 'custom'),
+    hubs: favorites.filter(f => f.type === 'hub'),
+    prefs: favorites.filter(f => f.type === 'pref'),
+  }), [favorites]);
+
+  const handleAdd = () => {
+    setFormError('');
+    const name = formName.trim();
+    const url = formUrl.trim();
+    if (!name) { setFormError('応援先の名前を入力してください'); return; }
+    if (!url) { setFormError('URLを入力してください'); return; }
+    if (!/^https?:\/\//i.test(url)) { setFormError('URLは http:// か https:// で始めてください'); return; }
+    onAddCustom({ name, url });
+    setFormName(''); setFormUrl(''); setShowAddForm(false);
+  };
+
+  const handleCancel = () => { setFormName(''); setFormUrl(''); setFormError(''); setShowAddForm(false); };
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="relative px-5 pt-6 pb-5" style={{ background: 'linear-gradient(135deg, #d4a373 0%, #b88a5c 100%)', color: '#faf6ee' }}>
+        <CloseButton onClose={onClose} />
+        <div className="flex items-center gap-1.5 mb-2" style={{ opacity: 0.9 }}>
+          <Bookmark size={12} fill="#faf6ee" stroke="#faf6ee" />
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', fontWeight: 700 }}>FAVORITES</div>
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', lineHeight: 1.2 }}>お気に入り</h2>
+        <div style={{ fontSize: '11px', opacity: 0.85, lineHeight: 1.6 }}>
+          {favorites.length === 0 ? '気になるリンクをここに保存できます' : `${favorites.length}件のリンクを保存中`}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {!showAddForm ? (
+          <button onClick={() => setShowAddForm(true)} className="w-full mb-4 p-3 rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform" style={{ background: 'white', border: '1.5px dashed #d4a373', color: '#8b3a3a' }}>
+            <Plus size={14} />
+            <span style={{ fontSize: '12px', fontWeight: 700 }}>気に入った個別リストを追加</span>
+          </button>
+        ) : (
+          <div className="mb-4 p-4 rounded-2xl" style={{ background: 'white', border: '1px solid #d4a373' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, marginBottom: '4px', color: '#3a2a1a' }}>個別の応援先を追加</div>
+            <div style={{ fontSize: '10px', marginBottom: '12px', lineHeight: 1.6, color: '#7a5a3a' }}>
+              Amazonで気に入った応援先のリストURLと名前を貼り付けてください
+            </div>
+
+            <div className="mb-2">
+              <label style={{ fontSize: '10px', fontWeight: 700, display: 'block', marginBottom: '4px', color: '#5a3a2a' }}>応援先の名前</label>
+              <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="例: NPO法人キッズウィル" className="w-full" style={{ padding: '8px 12px', fontSize: '12px', borderRadius: '8px', outline: 'none', background: '#faf6ee', border: '1px solid #e8dcc4', fontFamily: 'inherit', color: '#3a2a1a' }} />
+            </div>
+
+            <div className="mb-3">
+              <label style={{ fontSize: '10px', fontWeight: 700, display: 'block', marginBottom: '4px', color: '#5a3a2a' }}>リストのURL</label>
+              <input type="url" value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="https://www.amazon.co.jp/..." className="w-full" style={{ padding: '8px 12px', fontSize: '11px', borderRadius: '8px', outline: 'none', background: '#faf6ee', border: '1px solid #e8dcc4', fontFamily: 'monospace', color: '#3a2a1a' }} />
+            </div>
+
+            {formError && (
+              <div className="mb-2 p-2 rounded-lg" style={{ fontSize: '10px', background: '#fbe8d3', color: '#8b3a3a' }}>{formError}</div>
+            )}
+
+            <div className="flex gap-2">
+              <button onClick={handleCancel} className="flex-1" style={{ padding: '8px 0', fontSize: '11px', borderRadius: '9999px', background: '#faf6ee', color: '#5a3a2a' }}>キャンセル</button>
+              <button onClick={handleAdd} className="flex-1" style={{ padding: '8px 0', fontSize: '11px', fontWeight: 700, borderRadius: '9999px', background: '#8b3a3a', color: 'white' }}>追加する</button>
+            </div>
+          </div>
+        )}
+
+        {favorites.length === 0 ? (
+          <div className="text-center py-8">
+            <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.3 }}>📑</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '8px', color: '#5a3a2a' }}>まだお気に入りがありません</div>
+            <div style={{ fontSize: '11px', lineHeight: 1.6, padding: '0 24px', color: '#7a5a3a' }}>
+              各リンクの<Bookmark size={11} style={{ display: 'inline-flex', margin: '0 4px', verticalAlign: '-1px' }} />ボタンから保存するか、上の「+」から個別リストを追加できます。
+            </div>
+          </div>
+        ) : (
+          <>
+            {grouped.customs.length > 0 && <FavoriteGroup title="個別リスト" items={grouped.customs} onRemove={onRemove} onDonate={onDonate} />}
+            {grouped.hubs.length > 0 && <FavoriteGroup title="メインリソース" items={grouped.hubs} onRemove={onRemove} onDonate={onDonate} />}
+            {grouped.prefs.length > 0 && <FavoriteGroup title="都道府県別" items={grouped.prefs} onRemove={onRemove} onDonate={onDonate} />}
+
+            <div className="mt-6 pt-4" style={{ borderTop: '1px solid #e8dcc4' }}>
+              {!confirmClear ? (
+                <button onClick={() => setConfirmClear(true)} className="w-full" style={{ padding: '10px 0', fontSize: '11px', fontWeight: 700, borderRadius: '9999px', color: '#8b3a3a', background: 'transparent', border: '1px solid #e8dcc4' }}>
+                  すべてのお気に入りを削除
+                </button>
+              ) : (
+                <div className="p-3 rounded-xl" style={{ background: 'white', border: '1px solid #e8c993' }}>
+                  <div style={{ fontSize: '11px', marginBottom: '10px', fontWeight: 700, textAlign: 'center', color: '#5a3a2a' }}>本当にすべて削除しますか？</div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmClear(false)} className="flex-1" style={{ padding: '8px 0', fontSize: '11px', borderRadius: '9999px', background: '#faf6ee', color: '#5a3a2a' }}>キャンセル</button>
+                    <button onClick={() => { onClearAll(); setConfirmClear(false); }} className="flex-1" style={{ padding: '8px 0', fontSize: '11px', fontWeight: 700, borderRadius: '9999px', background: '#8b3a3a', color: 'white' }}>削除する</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </ModalShell>
+  );
+}
+
+function FavoriteGroup({ title, items, onRemove, onDonate }) {
+  return (
+    <div className="mb-5">
+      <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '10px', color: '#8b3a3a' }}>━ {title} ━</div>
+      <div className="space-y-2">
+        {items.map(item => <FavoriteItem key={item.id} item={item} onRemove={onRemove} onDonate={onDonate} />)}
+      </div>
+    </div>
+  );
+}
+
+function FavoriteItem({ item, onRemove, onDonate }) {
+  return (
+    <div className="relative p-3 rounded-xl" style={{ background: 'white', border: '1px solid #e8dcc4' }}>
+      <button onClick={() => onRemove(item.id)} className="absolute active:scale-90" style={{ top: '8px', right: '8px', width: '28px', height: '28px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(139,58,58,0.06)' }} aria-label="削除">
+        <Trash2 size={11} stroke="#8b3a3a" />
+      </button>
+
+      <a href={item.url} target="_blank" rel="noopener noreferrer" className="block" style={{ paddingRight: '36px' }}>
+        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+          {item.type === 'pref' && (
+            <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '2px', background: '#fbe8d3', color: '#8b3a3a' }}>{item.pref}</span>
+          )}
+          <span style={{ fontSize: '9px', letterSpacing: '0.1em', color: '#7a5a3a' }}>{item.source || item.badge}</span>
+        </div>
+        <div style={{ fontWeight: 700, fontSize: '12px', lineHeight: 1.3, marginBottom: '4px', color: '#3a2a1a' }}>{item.name}</div>
+        <div className="flex items-center gap-1" style={{ fontSize: '10px', color: '#8b3a3a' }}>
+          <ExternalLink size={9} />
+          リンクを開く
+        </div>
+      </a>
+
+      <button onClick={() => onDonate(item)} className="mt-2.5 w-full active:scale-[0.98]" style={{ padding: '6px 12px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#5a7a4a', color: 'white' }}>
+        <Gift size={11} />
+        寄付した記録を残す
+      </button>
+    </div>
+  );
+}
+
+function DonateRecordModal({ target, onSave, onClose }) {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const [recipient, setRecipient] = useState(target.recipientName || '');
+  const [date, setDate] = useState(todayStr);
+  const [itemName, setItemName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [memo, setMemo] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSave = () => {
+    setError('');
+    if (!recipient.trim()) { setError('寄付先を入力してください'); return; }
+    if (!date) { setError('日付を選択してください'); return; }
+    onSave({
+      recipientName: recipient.trim(),
+      date: new Date(date + 'T00:00:00').getTime(),
+      itemName: itemName.trim(),
+      amount: Number(amount) || 0,
+      memo: memo.trim(),
+      url: target.url || '',
+    });
+  };
+
+  return (
+    <ModalShell onClose={onClose} zIndex={60}>
+      <div className="relative px-5 pt-6 pb-4" style={{ background: 'linear-gradient(135deg, #5a7a4a 0%, #4a6a3a 100%)', color: '#faf6ee' }}>
+        <CloseButton onClose={onClose} />
+        <div className="flex items-center gap-1.5 mb-2" style={{ opacity: 0.9 }}>
+          <Gift size={12} />
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', fontWeight: 700 }}>RECORD A DONATION</div>
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', lineHeight: 1.2 }}>寄付の記録</h2>
+        <div style={{ fontSize: '11px', opacity: 0.85 }}>あなたの応援を記録に残しましょう</div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <FormField label="寄付先" required>
+          <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} className="w-full" style={inputStyle} />
+        </FormField>
+        <FormField label="寄付した日" required>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" style={inputStyle} />
+        </FormField>
+        <FormField label="贈った商品名">
+          <input type="text" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="例: 折りたたみ自転車" className="w-full" style={inputStyle} />
+        </FormField>
+        <FormField label="金額（円）">
+          <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="例: 17980" min="0" className="w-full" style={inputStyle} />
+        </FormField>
+        <FormField label="メモ（任意）">
+          <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="例: クリスマスプレゼントに / 自転車に乗れない子のために" rows={3} className="w-full" style={{ ...inputStyle, fontSize: '11px', resize: 'none' }} />
+        </FormField>
+
+        {error && (
+          <div className="p-2 rounded-lg" style={{ fontSize: '10px', background: '#fbe8d3', color: '#8b3a3a' }}>{error}</div>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <button onClick={onClose} className="flex-1" style={{ padding: '10px 0', fontSize: '11px', borderRadius: '9999px', background: 'white', color: '#5a3a2a', border: '1px solid #e8dcc4' }}>キャンセル</button>
+          <button onClick={handleSave} className="flex-1 flex items-center justify-center gap-1.5" style={{ padding: '10px 0', fontSize: '11px', fontWeight: 700, borderRadius: '9999px', background: '#5a7a4a', color: 'white' }}>
+            <Check size={12} />
+            記録する
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+const inputStyle = { padding: '8px 12px', fontSize: '12px', borderRadius: '8px', outline: 'none', background: 'white', border: '1px solid #e8dcc4', fontFamily: 'inherit', color: '#3a2a1a' };
+
+function FormField({ label, required, children }) {
+  return (
+    <div>
+      <label style={{ fontSize: '10px', fontWeight: 700, display: 'block', marginBottom: '4px', color: '#5a3a2a' }}>
+        {label} {required && <span style={{ color: '#8b3a3a' }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function HistoryModal({ history, totalAmount, onRemove, onClearAll, onClose }) {
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const grouped = useMemo(() => {
+    const g = {};
+    history.forEach(h => {
+      const d = new Date(h.date);
+      const key = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+      if (!g[key]) g[key] = [];
+      g[key].push(h);
+    });
+    return g;
+  }, [history]);
+
+  const formatYen = (n) => (Number(n) || 0).toLocaleString('ja-JP');
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="relative px-5 pt-6 pb-5" style={{ background: 'linear-gradient(135deg, #5a7a4a 0%, #4a6a3a 100%)', color: '#faf6ee' }}>
+        <CloseButton onClose={onClose} />
+        <div className="flex items-center gap-1.5 mb-2" style={{ opacity: 0.9 }}>
+          <History size={12} />
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', fontWeight: 700 }}>DONATION HISTORY</div>
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', lineHeight: 1.2 }}>寄付の履歴</h2>
+
+        {history.length > 0 && (
+          <div className="flex gap-3 mt-3">
+            <div className="flex-1 p-2.5 rounded-xl" style={{ background: 'rgba(250, 246, 238, 0.15)', border: '1px solid rgba(250, 246, 238, 0.25)' }}>
+              <div style={{ fontSize: '9px', opacity: 0.8, marginBottom: '2px' }}>記録した寄付</div>
+              <div style={{ fontSize: '16px', fontWeight: 700 }}>{history.length}件</div>
+            </div>
+            <div className="flex-1 p-2.5 rounded-xl" style={{ background: 'rgba(250, 246, 238, 0.15)', border: '1px solid rgba(250, 246, 238, 0.25)' }}>
+              <div style={{ fontSize: '9px', opacity: 0.8, marginBottom: '2px' }}>合計金額</div>
+              <div style={{ fontSize: '16px', fontWeight: 700 }}>¥{formatYen(totalAmount)}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {history.length === 0 ? (
+          <div className="text-center py-12">
+            <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.3 }}>🎁</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '8px', color: '#5a3a2a' }}>まだ記録がありません</div>
+            <div style={{ fontSize: '11px', lineHeight: 1.6, padding: '0 24px', color: '#7a5a3a' }}>
+              お気に入りから「寄付した記録を残す」ボタンで、あなたの応援を記録できます。
+            </div>
+          </div>
+        ) : (
+          <>
+            {Object.keys(grouped).map(monthKey => (
+              <div key={monthKey} className="mb-5">
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '10px', color: '#8b3a3a' }}>━ {monthKey} ━</div>
+                <div className="space-y-2">
+                  {grouped[monthKey].map(h => <HistoryItem key={h.id} entry={h} onRemove={onRemove} formatYen={formatYen} />)}
+                </div>
+              </div>
+            ))}
+
+            <div className="mt-6 pt-4" style={{ borderTop: '1px solid #e8dcc4' }}>
+              {!confirmClear ? (
+                <button onClick={() => setConfirmClear(true)} className="w-full" style={{ padding: '10px 0', fontSize: '11px', fontWeight: 700, borderRadius: '9999px', color: '#8b3a3a', background: 'transparent', border: '1px solid #e8dcc4' }}>
+                  すべての履歴を削除
+                </button>
+              ) : (
+                <div className="p-3 rounded-xl" style={{ background: 'white', border: '1px solid #e8c993' }}>
+                  <div style={{ fontSize: '11px', marginBottom: '10px', fontWeight: 700, textAlign: 'center', color: '#5a3a2a' }}>本当にすべて削除しますか？</div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmClear(false)} className="flex-1" style={{ padding: '8px 0', fontSize: '11px', borderRadius: '9999px', background: '#faf6ee', color: '#5a3a2a' }}>キャンセル</button>
+                    <button onClick={() => { onClearAll(); setConfirmClear(false); }} className="flex-1" style={{ padding: '8px 0', fontSize: '11px', fontWeight: 700, borderRadius: '9999px', background: '#8b3a3a', color: 'white' }}>削除する</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </ModalShell>
+  );
+}
+
+function HistoryItem({ entry, onRemove, formatYen }) {
+  const d = new Date(entry.date);
+  const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+
+  return (
+    <div className="relative p-3 rounded-xl" style={{ background: 'white', border: '1px solid #e8dcc4' }}>
+      <button onClick={() => onRemove(entry.id)} className="absolute active:scale-90" style={{ top: '8px', right: '8px', width: '28px', height: '28px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(139,58,58,0.06)' }} aria-label="削除">
+        <Trash2 size={11} stroke="#8b3a3a" />
+      </button>
+
+      <div style={{ paddingRight: '36px' }}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <div style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '2px', background: '#5a7a4a', color: 'white' }}>{dateStr}</div>
+          <div style={{ fontWeight: 700, fontSize: '12px', lineHeight: 1.3, flex: 1, color: '#3a2a1a' }}>{entry.recipientName}</div>
+        </div>
+
+        {entry.itemName && (
+          <div className="flex items-baseline gap-2" style={{ fontSize: '11px', marginBottom: '4px', color: '#5a4a3a' }}>
+            <span style={{ color: '#7a5a3a' }}>商品:</span>
+            <span>{entry.itemName}</span>
+          </div>
+        )}
+
+        {Number(entry.amount) > 0 && (
+          <div className="flex items-baseline gap-2" style={{ fontSize: '11px', marginBottom: '4px', color: '#5a4a3a' }}>
+            <span style={{ color: '#7a5a3a' }}>金額:</span>
+            <span style={{ fontWeight: 700, color: '#8b3a3a' }}>¥{formatYen(entry.amount)}</span>
+          </div>
+        )}
+
+        {entry.memo && (
+          <div className="mt-2 p-2 rounded-lg" style={{ fontSize: '10px', lineHeight: 1.6, fontStyle: 'italic', background: '#fbe8d3', color: '#5a3a2a' }}>
+            "{entry.memo}"
+          </div>
+        )}
+
+        {entry.url && (
+          <a href={entry.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2" style={{ fontSize: '10px', color: '#8b3a3a' }}>
+            <ExternalLink size={9} />
+            リストを開く
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GuideModal({ onClose }) {
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="relative px-5 pt-6 pb-5" style={{ background: 'linear-gradient(135deg, #d4a373 0%, #b88a5c 100%)', color: '#faf6ee' }}>
+        <CloseButton onClose={onClose} />
+        <div className="flex items-center gap-1.5 mb-2" style={{ opacity: 0.9 }}>
+          <Sparkles size={12} />
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', fontWeight: 700 }}>DONATION GUIDE</div>
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', lineHeight: 1.2 }}>応援先からのコメントを<br/>見つけよう</h2>
+        <div style={{ fontSize: '11px', opacity: 0.85, lineHeight: 1.6 }}>「リスト表示」に切り替えるだけで、ぐっと選びやすくなります</div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5">
+        <div className="mb-6" style={{ fontSize: '12px', lineHeight: 1.6, color: '#5a4a3a' }}>
+          Amazonほしい物リストを開いた直後は、商品が画像で並ぶ
+          <b style={{ color: '#8b3a3a' }}>「タイル表示」</b>
+          になっています。でもこの表示だと、応援先からのコメントが見えません。
+          <br/><br/>
+          ひとつのアイコンを押すだけで、<b>応援先の声がしっかり読める表示</b>に切り替わります。
+        </div>
+
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div style={{ width: '24px', height: '24px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', background: '#8b3a3a', color: 'white' }}>1</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#3a2a1a' }}>右上の「リスト表示」アイコンを押す</div>
+          </div>
+
+          <div className="p-4 rounded-2xl mb-3" style={{ background: 'white', border: '1px solid #e8dcc4' }}>
+            <div style={{ fontSize: '10px', marginBottom: '10px', textAlign: 'center', color: '#7a5a3a' }}>検索バーの右側にこの2つのアイコンがあります</div>
+            <div className="flex items-center justify-center gap-2">
+              <div className="flex flex-col items-center gap-1">
+                <div style={{ width: '48px', height: '48px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#faf6ee', border: '1px solid #e8dcc4' }}>
+                  <LayoutGrid size={20} stroke="#a08870" />
+                </div>
+                <div style={{ fontSize: '9px', color: '#a08870' }}>タイル</div>
+                <div style={{ fontSize: '8px', color: '#a08870' }}>(初期表示)</div>
+              </div>
+
+              <div style={{ fontSize: '24px', margin: '0 8px', color: '#d4a373' }}>→</div>
+
+              <div className="flex flex-col items-center gap-1">
+                <div className="relative" style={{ width: '48px', height: '48px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fbe8d3', border: '2px solid #d4a373' }}>
+                  <List size={20} stroke="#8b3a3a" />
+                  <div className="absolute" style={{ bottom: '-4px', left: '50%', transform: 'translateX(-50%)', width: '24px', height: '2px', borderRadius: '2px', background: '#d4a373' }} />
+                </div>
+                <div style={{ fontSize: '9px', fontWeight: 700, color: '#8b3a3a' }}>リスト</div>
+                <div style={{ fontSize: '8px', color: '#8b3a3a' }}>こっち！</div>
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '10px', lineHeight: 1.6, paddingLeft: '8px', color: '#7a5a3a' }}>※ PCでもスマホでも、検索バーの右に並んでいます</div>
+        </div>
+
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div style={{ width: '24px', height: '24px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', background: '#8b3a3a', color: 'white' }}>2</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#3a2a1a' }}>こんな情報が一気に見えるようになります</div>
+          </div>
+
+          <div className="p-3 rounded-2xl" style={{ background: 'white', border: '1px solid #e8dcc4' }}>
+            <div className="flex gap-3">
+              <div style={{ width: '64px', height: '64px', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', background: '#f0e4c8' }}>🚲</div>
+              <div className="flex-1 min-w-0">
+                <div style={{ fontSize: '11px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.3, color: '#3a2a1a' }}>折りたたみ自転車 20インチ</div>
+                <div style={{ fontSize: '10px', marginBottom: '6px', color: '#8b3a3a' }}>¥17,980</div>
+
+                <div className="relative p-2.5 rounded-lg mb-2" style={{ background: '#fbe8d3' }}>
+                  <div style={{ fontSize: '10px', lineHeight: 1.6, fontStyle: 'italic', color: '#5a3a2a' }}>
+                    "自転車に乗れない子が練習するために必要です。どうぞよろしくお願いいたします。"
+                  </div>
+                </div>
+
+                <div className="flex gap-2" style={{ fontSize: '9px' }}>
+                  <div style={{ padding: '2px 6px', borderRadius: '4px', background: '#8b3a3a', color: 'white' }}>優先度: 最高</div>
+                  <div style={{ padding: '2px 6px', borderRadius: '4px', background: '#5a7a4a', color: 'white' }}>ニーズ 3 / 残り 3</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3" style={{ fontSize: '11px', lineHeight: 1.6, color: '#5a4a3a' }}>
+            <b style={{ color: '#8b3a3a' }}>3つ揃ってる応援先は寄付の手応えがある</b>のでおすすめ：
+          </div>
+          <ul className="mt-2" style={{ fontSize: '11px', paddingLeft: '16px', listStyleType: 'disc', color: '#5a4a3a' }}>
+            <li><b>コメント</b>: なぜこれが必要なのか</li>
+            <li><b>優先度</b>: 高・中・低（最高は今すぐほしいサイン）</li>
+            <li><b>ニーズ/残り</b>: あと何個必要なのか</li>
+          </ul>
+        </div>
+
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div style={{ width: '24px', height: '24px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', background: '#8b3a3a', color: 'white' }}>3</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#3a2a1a' }}>心が動いた商品に贈る</div>
+          </div>
+          <div style={{ fontSize: '11px', lineHeight: 1.6, color: '#5a4a3a' }}>
+            コメントを読んで「あ、これは応援したい」と感じた商品を選ぶのが、一番気持ちのいい寄付になります。
+            金額の大小ではなく、共感できる一品で大丈夫です。
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl mb-2" style={{ fontSize: '10px', lineHeight: 1.6, background: 'white', border: '1px solid #e8dcc4', color: '#7a5a3a' }}>
+          <b style={{ color: '#3a2a1a' }}>📌 コメントがない応援先もあります</b><br/>
+          記入の手間や運営方針で書いていないところもあります。
+          その場合は<b>リスト全体の説明文</b>（一番上に書かれた紹介文）を読むと活動の様子がわかります。
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+function InfoModal({ onClose }) {
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="flex justify-between items-center px-5 pt-5 pb-3" style={{ borderBottom: '1px solid #e8dcc4' }}>
+        <div style={{ fontWeight: 700, fontSize: '14px', color: '#3a2a1a' }}>このアプリの使い方</div>
+        <button onClick={onClose} style={{ padding: '4px' }}>
+          <X size={16} stroke="#5a3a2a" />
+        </button>
+      </div>
+
+      <div className="overflow-y-auto p-5 space-y-4" style={{ fontSize: '12px', lineHeight: 1.6, color: '#5a4a3a' }}>
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px', color: '#8b3a3a' }}>📍 ハブ型まとめサイト</div>
+          <p>各応援先の最新情報は時期で変わるため、このアプリは正確な情報源への「入口」として作られています。Amazon「みんなで応援」プログラムには児童養護施設だけでなく、動物保護団体、被災地支援、高齢者・障害者支援など幅広い応援先が登録されています。</p>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px', color: '#8b3a3a' }}>📑 お気に入り</div>
+          <p>気になった応援先のリンクは、各カードの<Bookmark size={11} style={{ display: 'inline-flex', margin: '0 4px', verticalAlign: '-1px' }} />ボタンで保存できます。「+ 個別リストを追加」で、Amazonで見つけた具体的な応援先のURLも保存できます。次回開いた時もそのまま残ります。</p>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px', color: '#8b3a3a' }}>🎁 寄付の履歴</div>
+          <p>お気に入りの「寄付した記録を残す」ボタンから、寄付先・日付・商品名・金額・メモを記録できます。ヘッダーの<History size={11} style={{ display: 'inline-flex', margin: '0 4px', verticalAlign: '-1px' }} />アイコンから、月別の履歴と合計金額が見られます。</p>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px', color: '#8b3a3a' }}>📦 寄付の流れ</div>
+          <ol style={{ paddingLeft: '16px', listStyleType: 'decimal' }}>
+            <li>応援したい先のリンクを開く</li>
+            <li>Amazonほしい物リストへ進む</li>
+            <li><b>右上の「リスト表示」アイコンに切り替えてコメントを確認</b></li>
+            <li>共感できる商品を選んでカートに入れる</li>
+            <li>住所が自動入力されるので決済するだけで応援先に直接届く</li>
+            <li>アプリに戻って「寄付した記録を残す」で記録</li>
+          </ol>
+        </div>
+
+        <div className="p-3 rounded-xl" style={{ background: 'white', border: '1px solid #e8dcc4' }}>
+          <div style={{ fontWeight: 700, marginBottom: '4px', color: '#3a2a1a' }}>🌸 注意事項</div>
+          <ul style={{ paddingLeft: '16px', listStyleType: 'disc' }}>
+            <li>このアプリはAmazon・各団体・各まとめサイトとは無関係の個人作成ツールです</li>
+            <li>外部サイトの内容は予告なく変わる可能性があります</li>
+            <li>お気に入りと履歴のデータはあなたのブラウザにのみ保存されます（他人には見えません）</li>
+            <li>ブラウザのデータを削除すると、お気に入り・履歴も消えます</li>
+          </ul>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// 共通モーダル外殻
+function ModalShell({ children, onClose, zIndex = 50 }) {
+  return (
+    <div className="fixed inset-0 flex items-end sm:items-center justify-center p-3" style={{ zIndex, background: 'rgba(58, 42, 26, 0.6)', backdropFilter: 'blur(6px)' }} onClick={onClose}>
+      <div className="w-full overflow-hidden" style={{ maxWidth: '28rem', borderRadius: '24px 24px 0 0', background: '#faf6ee', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function CloseButton({ onClose }) {
+  return (
+    <button onClick={onClose} className="absolute" style={{ top: '12px', right: '12px', padding: '6px', borderRadius: '9999px', background: 'rgba(250, 246, 238, 0.2)' }}>
+      <X size={14} />
+    </button>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
